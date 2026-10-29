@@ -61,10 +61,22 @@ jobs:
 
       - name: Check project files
         run: |
-          set -e
-          test -f CMakeLists.txt
-          test -f build.sh
-          echo "Project files found."
+          echo "=== Current directory ==="
+          pwd
+          echo "=== Root files ==="
+          ls -la
+          echo "=== Check required files ==="
+          if [ -f CMakeLists.txt ]; then
+            echo "FOUND: CMakeLists.txt"
+          else
+            echo "MISSING: CMakeLists.txt"
+          fi
+          if [ -f build.sh ]; then
+            echo "FOUND: build.sh"
+          else
+            echo "MISSING: build.sh"
+          fi
+
 
       - name: Report build configuration
         run: |
