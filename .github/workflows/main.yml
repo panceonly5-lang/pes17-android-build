@@ -1,0 +1,30 @@
+
+name: PES17 Android Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang python3 git unzip
+
+      - name: Set up Android NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build status check
+        run: |
+          echo "Repository checked out."
+          echo "Checking for required project files..."
+          test -f CMakeLists.txt
+          test -f build.sh
+          echo "Project files found."
