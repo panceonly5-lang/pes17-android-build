@@ -29,6 +29,36 @@ jobs:
           sudo apt-get install -y \
             cmake ninja-build clang python3 git unzip
 
+      - name: Download PPC recompilation archive
+        env:
+          GH_TOKEN: ${{ secrets.PPC_DOWNLOAD_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$RUNNER_TEMP/ppc-recomp-download"
+          mkdir -p "$RUNNER_TEMP/ppc-recomp-extracted"
+
+          gh release download ppc-v1 \
+            --repo panceonly5-lang/pes17-private-build- \
+            --pattern "ppc-recomp.tar.gz" \
+            --dir "$RUNNER_TEMP/ppc-recomp-download"
+
+          echo "=== Download verification ==="
+          ls -lh "$RUNNER_TEMP/ppc-recomp-download/"
+
+          echo "=== Archive contents ==="
+          tar -tzf "$RUNNER_TEMP/ppc-recomp-download/ppc-recomp.tar.gz" \
+            > "$RUNNER_TEMP/ppc-files.txt"
+
+          sed -n '1,40p' "$RUNNER_TEMP/ppc-files.txt"
+
+          echo "=== Extracting PPC ==="
+          tar -xzf "$RUNNER_TEMP/ppc-recomp-download/ppc-recomp.tar.gz" \
+            -C "$RUNNER_TEMP/ppc-recomp-extracted"
+
+          echo "=== Extracted files ==="
+          find "$RUNNER_TEMP/ppc-recomp-extracted" -maxdepth 3 -type f | head -40
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
