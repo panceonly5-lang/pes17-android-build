@@ -9,14 +9,14 @@
 #include <chrono>
 #include <cstdlib>
 
-#ifdef PES17_HAVE_VULKAN
+#if defined(PES17_HAVE_VULKAN) && !defined(PES17_NO_RENDERDOC)
 #include "../../platform.h"
 #include "../../../third_party/renderdoc/renderdoc_app.h"
 #endif
 
 namespace
 {
-#ifndef PES17_HAVE_VULKAN
+#if !defined(PES17_HAVE_VULKAN) || defined(PES17_NO_RENDERDOC)
     struct { } g;
 #else
     struct State
@@ -108,7 +108,7 @@ namespace
 #endif
 }
 
-#ifndef PES17_HAVE_VULKAN
+#if !defined(PES17_HAVE_VULKAN) || defined(PES17_NO_RENDERDOC)
 void vk::capture::FrameBoundary(bool, uint64_t) {}
 void vk::capture::RequestNow(unsigned) {}
 void vk::capture::ToggleStream() {}
