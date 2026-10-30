@@ -25,18 +25,18 @@ jobs:
 
       - name: Diagnose private release access
         env:
-          PPC_TOKEN: ${{ secrets.PPC_DOWNLOAD_TOKEN }}
+          PPC_TOKEN: ${{ secrets.PES_DOWNLOAD_TOKEN }}
         run: |
           set -euo pipefail
 
-          if [ -z "$PPC_TOKEN" ]; then
-            echo "ERROR: PPC_DOWNLOAD_TOKEN is empty or unavailable."
+          if [ -z "$PES_TOKEN" ]; then
+            echo "ERROR: PES_DOWNLOAD_TOKEN is empty or unavailable."
             exit 1
           fi
 
-          echo "PPC_DOWNLOAD_TOKEN is present."
+          echo "PES_DOWNLOAD_TOKEN is present."
 
-          GH_TOKEN="$PPC_TOKEN" gh repo view \
+          GH_TOKEN="$PES_TOKEN" gh repo view \
             panceonly5-lang/pes17-private-build- \
             --json nameWithOwner,isPrivate
 
@@ -52,7 +52,7 @@ jobs:
             
       - name: Download PPC recompilation archive
         env:
-          GH_TOKEN: ${{ secrets.PPC_DOWNLOAD_TOKEN }}
+          GH_TOKEN: ${{ secrets.PES_DOWNLOAD_TOKEN }}
         run: |
           set -euo pipefail
 
