@@ -25,24 +25,31 @@ jobs:
 
       - name: Diagnose private release access
         env:
-          GH_TOKEN: ${{ secrets.PPC_DOWNLOAD_TOKEN }}
+          PPC_TOKEN: ${{ secrets.PPC_DOWNLOAD_TOKEN }}
         run: |
           set -euo pipefail
 
-          echo "=== CHECK PRIVATE REPOSITORY ==="
-          gh repo view panceonly5-lang/pes17-private-build- \
+          if [ -z "$PPC_TOKEN" ]; then
+            echo "ERROR: PPC_DOWNLOAD_TOKEN is empty or unavailable."
+            exit 1
+          fi
+
+          echo "PPC_DOWNLOAD_TOKEN is present."
+
+          GH_TOKEN="$PPC_TOKEN" gh repo view \
+            panceonly5-lang/pes17-private-build- \
             --json nameWithOwner,isPrivate
 
           echo "=== LIST RELEASES ==="
-          gh release list \
+          GH_TOKEN="$PPC_TOKEN" gh release list \
             --repo panceonly5-lang/pes17-private-build- \
             --limit 20
 
           echo "=== CHECK PPC-V1 ==="
-          gh release view ppc-v1 \
+          GH_TOKEN="$PPC_TOKEN" gh release view ppc-v1 \
             --repo panceonly5-lang/pes17-private-build- \
             --json tagName,name,isDraft,assets
-
+            
       - name: Download PPC recompilation archive
         env:
           GH_TOKEN: ${{ secrets.PPC_DOWNLOAD_TOKEN }}
