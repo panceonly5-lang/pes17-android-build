@@ -733,6 +733,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // Everything here is one of the runtime's own switches
         // (docs/switches.md); the app just fills them in.
         NativeBridge.nativeSetOption("PES17_FULLSCREEN", "1")
+        NativeBridge.nativeSetOption("PES17_FORCE_LEGACY_RENDERING", "1")
         NativeBridge.nativeSetOption("PES17_NO_AUDIO", if (prefs.audioEnabled) "" else "1")
         NativeBridge.nativeSetOption("PES17_NO_MSAA", if (prefs.multisampling) "0" else "1")   // "0", not unset: perf.cpp defaults an unset one to 1
         if (prefs.renderScale in 1..3) {
