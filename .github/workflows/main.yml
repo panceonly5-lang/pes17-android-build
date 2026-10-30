@@ -81,6 +81,29 @@ jobs:
           find "$RUNNER_TEMP/ppc-recomp-extracted" \
             -maxdepth 3 -type f | head -40
 
+      - name: Integrate PPC sources into project
+        run: |
+          set -euo pipefail
+
+          echo "=== INTEGRATING PPC ==="
+
+          mkdir -p "$GITHUB_WORKSPACE/ppc"
+
+          cp -a "$RUNNER_TEMP/ppc-recomp-extracted/ppc/." \
+            "$GITHUB_WORKSPACE/ppc/"
+
+          echo "=== VERIFY PPC FILES ==="
+          echo "Generated C++ files:"
+          find ppc -maxdepth 1 -name 'ppc_recomp.*.cpp' | wc -l
+
+          echo "Required headers:"
+          ls -lh ppc/ppc_config.h
+          ls -lh ppc/ppc_context.h
+          ls -lh ppc/ppc_recomp_shared.h
+          ls -lh ppc/ppc_func_mapping.cpp
+
+          echo "PPC integration completed."
+
       - name: Install Linux build tools
         run: |
           sudo apt-get update
