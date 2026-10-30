@@ -29,14 +29,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "$PES_TOKEN" ]; then
+          if [ -z "$PPC_TOKEN" ]; then
             echo "ERROR: PES_DOWNLOAD_TOKEN is empty or unavailable."
             exit 1
           fi
 
           echo "PES_DOWNLOAD_TOKEN is present."
 
-          GH_TOKEN="$PES_TOKEN" gh repo view \
+          GH_TOKEN="$PPC_TOKEN" gh repo view \
             panceonly5-lang/pes17-private-build- \
             --json nameWithOwner,isPrivate
 
@@ -49,17 +49,17 @@ jobs:
           GH_TOKEN="$PPC_TOKEN" gh release view ppc-v1 \
             --repo panceonly5-lang/pes17-private-build- \
             --json tagName,name,isDraft,assets
-            
+
       - name: Download PPC recompilation archive
         env:
-          GH_TOKEN: ${{ secrets.PES_DOWNLOAD_TOKEN }}
+          PPC_TOKEN: ${{ secrets.PES_DOWNLOAD_TOKEN }}
         run: |
           set -euo pipefail
 
           mkdir -p "$RUNNER_TEMP/ppc-recomp-download"
           mkdir -p "$RUNNER_TEMP/ppc-recomp-extracted"
 
-          gh release download ppc-v1 \
+          GH_TOKEN="$PPC_TOKEN" gh release download ppc-v1 \
             --repo panceonly5-lang/pes17-private-build- \
             --pattern "ppc-recomp.tar.gz" \
             --dir "$RUNNER_TEMP/ppc-recomp-download"
