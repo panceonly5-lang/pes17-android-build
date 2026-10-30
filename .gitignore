@@ -1,0 +1,23 @@
+GAME/
+pes/
+ppc/
+build/
+build-*/
+build-tests/
+europe_extract/
+*.log
+logs-*.txt
+*.so
+*.apk
+*.tar.gz
+config/
+
+# Vendored dependency build artifacts
+**/CMakeFiles/
+**/CMakeCache.txt
+**/build/
+**/cmake-build-*/
+
+# Python cache
+__pycache__/
+*.py[cod]
