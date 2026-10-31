@@ -60,8 +60,10 @@ namespace vk::renderer::detail
     }
 
     bool MakeResolveImage(Resolved& into, uint32_t width, uint32_t height,
-                          VkFormat format, bool depth = false, bool exact = false, float scale = 1.0f)
+                     VkFormat format, bool depth = false, bool exact = false,
+                     float scale = 1.0f, bool* recreated = nullptr)
     {
+        if (recreated) *recreated = false;
         // A copy is drawn at its source surface's scale (the scene scale for a
         // full-frame one), and a different scale is a different image.
         if (into.image && into.scale != scale) exact = true;
@@ -83,6 +85,7 @@ namespace vk::renderer::detail
         // Rare -- a resolve destination that has to grow -- and both a submitted
         // slot and the buffer being recorded may still name the image being
         // replaced.
+        if (recreated) *recreated = true;
         if (into.image) RetireBeforeDestroy();
         // The texture cache has built sets on these views. Its own check -- the
         // view behind an id changed -- misses a replacement that gets the old
@@ -616,6 +619,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                                        room(source->height * gridScaleY, destY) });
     Resolved& into = ResolveCopyFor(destination);
     const bool firstThisFrame = into.writtenFrame != g.frames;
+    bool recreated = false;
     // The copy converts to the destination's format, as the console's resolve
     // does. PES 2017 lights its scene into a 7e3 target (half floats here, up to
     // about 32) and resolves it to 8_8_8_8 for the post chain, which counts on
@@ -635,12 +639,14 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     }
     if (!destination || !width || !height ||
         !MakeResolveImage(into, surfaceWidth, surfaceHeight, copyFormat, false,
-                          firstThisFrame, source->scale))
+                          firstThisFrame, source->scale, &recreated))
     {
         Skip("resolve destination image");
         SubmitIfFilling();
         return;
     }
+    // Keep previous partial resolves only when this frame reuses the same image.
+    const bool keep = !firstThisFrame && !recreated;
     into.writtenFrame = g.frames;
     into.from = sourceKey;
     into.guestFormat = destInfo.Format();
@@ -674,8 +680,10 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     if (!sourceImage) { Skip("resolve of a multisampled surface"); SubmitIfFilling(); return; }
     // After the draws that sampled this copy's last contents.
     RecordBarrier(into.image, VK_IMAGE_ASPECT_COLOR_BIT,
-                  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                  0, VK_ACCESS_TRANSFER_WRITE_BIT, kShaderStages, VK_PIPELINE_STAGE_TRANSFER_BIT);
+                  keep ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                  keep ? VK_ACCESS_SHADER_READ_BIT : 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+                  kShaderStages, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
     VkImageBlit copy{};
     copy.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
