@@ -841,6 +841,36 @@ bool vk::pipeline::Initialise(void* device, void* physical, void* queue, uint32_
 
     VkPhysicalDeviceProperties props{};
     vkGetPhysicalDeviceProperties(g.physical, &props);
+
+    // Temporary diagnostic: inspect Vulkan blit format support.
+    struct BlitFormatCheck
+    {
+        VkFormat format;
+        const char* name;
+    };
+
+    const BlitFormatCheck blitFormats[] = {
+        { VK_FORMAT_R16G16B16A16_SFLOAT, "RGBA16F" },
+        { VK_FORMAT_R8G8B8A8_UNORM, "RGBA8" },
+        { VK_FORMAT_R32_SFLOAT, "R32F" },
+        { VK_FORMAT_R16G16_SFLOAT, "RG16F" },
+        { VK_FORMAT_R32G32_SFLOAT, "RG32F" },
+        { VK_FORMAT_A2B10G10R10_UNORM_PACK32, "A2B10G10R10" },
+        { VK_FORMAT_B8G8R8A8_UNORM, "BGRA8" },
+    };
+
+    for (const auto& item : blitFormats)
+    {
+        VkFormatProperties fp{};
+        vkGetPhysicalDeviceFormatProperties(g.physical, item.format, &fp);
+        const VkFormatFeatureFlags f = fp.optimalTilingFeatures;
+
+        LOGI("BLIT CHECK: %s optimal=0x%08X src=%u dst=%u linear=%u",
+             item.name, unsigned(f),
+             !!(f & VK_FORMAT_FEATURE_BLIT_SRC_BIT),
+             !!(f & VK_FORMAT_FEATURE_BLIT_DST_BIT),
+             !!(f & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT));
+    }
     g.deviceProperties = props;
     g.name = props.deviceName;
     // A bug report is read against the driver's known faults.
