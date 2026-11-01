@@ -106,6 +106,7 @@ jobs:
             --no-daemon \
             --max-workers=2 \
             --stacktrace \
+            -Ppes17Diagnostics=ON \
             assembleDebug
 
       - name: Verify APK

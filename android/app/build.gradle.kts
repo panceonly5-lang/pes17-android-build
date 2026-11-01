@@ -80,13 +80,15 @@ android {
             abiFilters += "arm64-v8a"
         }
 
+        val diagnostics = providers.gradleProperty("pes17Diagnostics").orNull ?: "OFF"
+
         externalNativeBuild {
             cmake {
                 arguments += listOf(
                     "-DANDROID_STL=c++_shared",
                     // The runtime's optional parts, all off: they cost frames
                     // and the phone has none to spare.
-                    "-DPES17_DIAGNOSTICS=OFF",
+                    "-DPES17_DIAGNOSTICS=$diagnostics",
                     "-DPES17_USE_SDL=OFF",
                     "-DPES17_LOGGING=ON",
                     "-DCMAKE_BUILD_TYPE=Release",
