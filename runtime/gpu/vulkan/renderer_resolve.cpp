@@ -542,28 +542,44 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         // surface at pitch 640 and resolves it as a 1x one at pitch 1280, the
         // samples' row read as pixels. The bytes are the target drawn at that
         // tile in that format, whatever the pitch and sample count say now.
+        bool selected = false;
         for (auto& [key, target] : g.targets)
+        {
             if (!key.depth && key.baseTile == sourceKey.baseTile && key.format == sourceKey.format)
             {
-                static bool told = false;
-                if (!told)
+                const uint32_t sourceRow = sourceKey.pitch << std::min(sourceKey.samples, 1u);
+                const uint32_t candidateRow = key.pitch << std::min(key.samples, 1u);
+
+                LOGI("RESOLVE CANDIDATE: pitch=%u samples=%u row=%u size=%ux%u "
+                     "hostSamples=%u colourDrawsThisFrame=%llu draws=%llu rowMatch=%u",
+                     key.pitch, key.samples, candidateRow, target.width, target.height,
+                     unsigned(target.samples),
+                     (unsigned long long)target.colourDrawsThisFrame,
+                     (unsigned long long)target.draws, candidateRow == sourceRow);
+
+                if (!selected)
                 {
-                    told = true;
-                    LOGI("renderer: resolving tile %u (pitch %u, x%u) from the target drawn there"
-                         " at pitch %u, x%u", sourceKey.baseTile, sourceKey.pitch, sourceKey.samples,
-                         key.pitch, key.samples);
+                    selected = true;
+                    static bool told = false;
+                    if (!told)
+                    {
+                        told = true;
+                        LOGI("renderer: resolving tile %u (pitch %u, x%u) from the target drawn there"
+                             " at pitch %u, x%u", sourceKey.baseTile, sourceKey.pitch,
+                             sourceKey.samples, key.pitch, key.samples);
+                    }
+
+                    source = &target;
+
+                    if (sourceKey.samples == 0 && key.samples == 2 &&
+                        sourceKey.pitch == key.pitch * 2)
+                        gridScaleX = gridScaleY = 2;
+                    else if (sourceKey.samples == 0 && key.samples == 1 &&
+                             sourceKey.pitch == key.pitch)
+                        gridScaleY = 2;
                 }
-                source = &target;
-                // A 4x surface (2x2 samples a pixel) read as a 1x one at twice the
-                // pitch is its sample grid, twice the size each way; a 2x one
-                // (two samples stacked) is twice as tall. The target here holds
-                // one colour a pixel (MSAA is off on phones), so the copy scales.
-                if (sourceKey.samples == 0 && key.samples == 2 && sourceKey.pitch == key.pitch * 2)
-                    gridScaleX = gridScaleY = 2;
-                else if (sourceKey.samples == 0 && key.samples == 1 && sourceKey.pitch == key.pitch)
-                    gridScaleY = 2;
-                break;
             }
+        }
     }
     if (!source)
     {
