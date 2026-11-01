@@ -45,7 +45,6 @@ static void ReportAll()
     kernel::ReportMemory();
     gpu::Report();
     player::Report();
-    engine::ReportPredicateWaits();
     pacing::Write();
     apu::xma::Report();
     apu::audio::Report();
