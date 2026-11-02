@@ -1056,7 +1056,21 @@ void vk::renderer::Swap(uint32_t frontBuffer)
         return;
     }
     Resolved& frame = found->second.copies[found->second.newest];
-    static bool presentedOnce = false;
+static uint64_t swapChecks = 0;
+if (swapChecks++ % 120 == 0)
+{
+    const auto& ring = found->second;
+    LOGI("SWAP CHECK: addr=%08X g=%llu ring=%llu newest=%u written=%llu image=%d depth=%d size=%ux%u",
+         frontBuffer,
+         (unsigned long long)g.frames,
+         (unsigned long long)ring.frame,
+         ring.newest,
+         (unsigned long long)frame.writtenFrame,
+         frame.image != VK_NULL_HANDLE,
+         frame.depth,
+         frame.width, frame.height);
+}
+static bool presentedOnce = false;
     if (!presentedOnce) { presentedOnce = true; LOGI("renderer: first frame presented, from the resolve at %08X", frontBuffer); }
     if (!frame.image || frame.depth) return;
     if (!g.recording && !BeginFrame()) return;
