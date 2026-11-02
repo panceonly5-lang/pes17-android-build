@@ -1056,6 +1056,19 @@ void vk::renderer::Swap(uint32_t frontBuffer)
         return;
     }
     Resolved& frame = found->second.copies[found->second.newest];
+    static uint32_t lastSwapAddress = UINT32_MAX;
+    if (frontBuffer != lastSwapAddress)
+    {
+        lastSwapAddress = frontBuffer;
+        const auto& ring = found->second;
+        LOGW("SWAP SELECT: front=%08X key=%08X g=%llu ring=%llu newest=%u written=%llu image=%d depth=%d size=%ux%u",
+             frontBuffer, frontBuffer & ~0xFFFu,
+             (unsigned long long)g.frames,
+             (unsigned long long)ring.frame, ring.newest,
+             (unsigned long long)frame.writtenFrame,
+             frame.image != VK_NULL_HANDLE, frame.depth,
+             frame.width, frame.height);
+    }
 static uint64_t swapChecks = 0;
 if (swapChecks++ % 120 == 0)
 {
