@@ -25,6 +25,7 @@
 #include "../gpu/vulkan/pipeline.h"
 #include "../gpu/vulkan/renderer_state.h"
 #include "../gpu/internal.h"
+#include "../gpu/vulkan/display_table.h"
 #include "../console.h"
 #include "../online/service.h"
 
@@ -386,6 +387,7 @@ PES17_NATIVE(jboolean, nativeStart)(JNIEnv* env, jobject, jstring gameDirectory)
 PES17_NATIVE(void, nativeRequestStop)(JNIEnv*, jobject)
 {
     gpu::detail::ReportDisplayLut();
+    vk::display::Report();
 
     LOGI("android: the app asked the run to end");
     android::audio::SetMuted(true);
