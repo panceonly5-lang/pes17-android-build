@@ -771,6 +771,16 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // Both caches live in the app's own folder and make the second start
         // of a level far quicker than the first.
         val extDir = getExternalFilesDir(null)
+        val dumpDir = extDir?.let { File(it, "frame_dumps") }
+        if (dumpDir != null && dumpDir.mkdirs().let { it || dumpDir.isDirectory }) {
+            NativeBridge.nativeSetOption("PES17_DUMP_FRAMES", dumpDir.absolutePath)
+            NativeBridge.nativeSetOption("PES17_DUMP_FRAME_EVERY", "60")
+            NativeBridge.nativeSetOption("PES17_DUMP_FRAMES_AFTER_SECONDS", "5")
+        } else {
+            NativeBridge.nativeSetOption("PES17_DUMP_FRAMES", "")
+            NativeBridge.nativeSetOption("PES17_DUMP_FRAME_EVERY", "")
+            NativeBridge.nativeSetOption("PES17_DUMP_FRAMES_AFTER_SECONDS", "")
+        }
         val shaderCacheFile = if (extDir != null) File(extDir, "shader_cache.bin") else File(filesDir, "shader_cache.bin")
         if (!shaderCacheFile.exists()) {
             val internalCache = File(filesDir, "shader_cache.bin")
