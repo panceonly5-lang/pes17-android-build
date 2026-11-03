@@ -24,6 +24,7 @@
 #include "../gpu/vulkan/texture_cache.h"
 #include "../gpu/vulkan/pipeline.h"
 #include "../gpu/vulkan/renderer_state.h"
+#include "../gpu/internal.h"
 #include "../console.h"
 #include "../online/service.h"
 
@@ -384,6 +385,8 @@ PES17_NATIVE(jboolean, nativeStart)(JNIEnv* env, jobject, jstring gameDirectory)
 // happy with, and which cannot crash.
 PES17_NATIVE(void, nativeRequestStop)(JNIEnv*, jobject)
 {
+    gpu::detail::ReportDisplayLut();
+
     LOGI("android: the app asked the run to end");
     android::audio::SetMuted(true);
     android::detail::SetRunning(false);

@@ -151,6 +151,7 @@ namespace
         diag::Stat shaderLoadsRefused, predicatedRun, predicatedSkipped, registerWritesOutOfRange;
         // WAIT_REG_MEM: seen, found not yet satisfied, time spent waiting, given up on.
         diag::Stat regMemWaits, regMemStalls, regMemWaitMicros, regMemTimeouts;
+        diag::Stat lutIndexWrites, lutColorWrites, lutEnabledWrites, lutEntry255Writes;
 
         // The display's colour table: 256 entries of ten bits per channel, blue
         // in the low bits. The title rewrites the whole ramp as one sweep of
@@ -258,6 +259,7 @@ namespace
                 LOGW("gpu: a non-finite constant %08X is written to c%u.%c by the %s packet at %08X", value, (index - 0x4000) / 4, "xyzw"[index & 3], g_currentOpcodeName.load() ? g_currentOpcodeName.load() : "?", g_currentPacketAddress.load());
         }
         g.registers.Write(index, value);
+    if (index == gpu::DC_LUT_RW_INDEX) g.lutIndexWrites++;
         *GuestPtr<be32>(kRegisterAperture + index * 4) = value;
         // Dump only: who sets vertex fetch slot 95 (vf31.2) and texture slot 0.
         if ((index == 0x48BE || index == 0x48BF || index == 0x4800 || index == 0x4801) &&
@@ -314,8 +316,10 @@ namespace
         // steps the index on by itself.
         if (index == gpu::DC_LUT_30_COLOR)
         {
+            g.lutColorWrites++;
             const uint32_t entry = g.registers[gpu::DC_LUT_RW_INDEX] & 0xFF;
             const uint32_t mask  = g.registers[gpu::DC_LUT_WRITE_EN_MASK] & 7;
+            if (mask) g.lutEnabledWrites++;
             uint32_t& held = g.displayLutPending[entry];
             if (mask & 1) held = (held & ~0x000003FFu) | (value & 0x3FF);
             if (mask & 2) held = (held & ~0x000FFC00u) | (value & 0xFFC00);
@@ -324,6 +328,7 @@ namespace
             // Entry 255 ends the sweep: the ramp the title means is complete.
             if (entry == 0xFF)
             {
+                g.lutEntry255Writes++;
                 std::lock_guard<std::mutex> guard(g.displayLutLock);
                 std::memcpy(g.displayLut, g.displayLutPending, sizeof g.displayLut);
                 g.displayLutReady.store(true, std::memory_order_release);
@@ -1250,8 +1255,18 @@ void gpu::detail::SetCurrentDrawStage(const char* stage)
 {
     g_currentDrawStage.store(stage, std::memory_order_relaxed);
 }
+void gpu::detail::ReportDisplayLut()
+{
+    if constexpr (!diag::kOn) return;
 
-
+    LOGI("gpu: display LUT snapshot: %llu index writes, %llu colour writes,"
+         " %llu enabled writes, %llu entry-255 writes; ready=%u",
+         (unsigned long long)g.lutIndexWrites.load(),
+         (unsigned long long)g.lutColorWrites.load(),
+         (unsigned long long)g.lutEnabledWrites.load(),
+         (unsigned long long)g.lutEntry255Writes.load(),
+         unsigned(g.displayLutReady.load(std::memory_order_acquire)));
+}
 void gpu::detail::ReportCommandProcessor()
 {
     if constexpr (!diag::kOn) return;
@@ -1274,6 +1289,12 @@ void gpu::detail::ReportCommandProcessor()
              (unsigned long long)g.regMemWaits.load(), (unsigned long long)g.regMemStalls.load(),
              double(g.regMemWaitMicros.load()) / 1000.0, (unsigned long long)g.regMemTimeouts.load());
     LOGI("gpu: %llu swap packets", (unsigned long long)g.swapsParsed);
+    LOGI("gpu: display LUT: %llu index writes, %llu colour writes, %llu enabled writes, %llu entry-255 writes; ready=%u",
+         (unsigned long long)g.lutIndexWrites.load(),
+         (unsigned long long)g.lutColorWrites.load(),
+         (unsigned long long)g.lutEnabledWrites.load(),
+         (unsigned long long)g.lutEntry255Writes.load(),
+         unsigned(g.displayLutReady.load(std::memory_order_acquire)));
     const auto bins = [](const uint64_t* n) {
         char line[160];
         std::snprintf(line, sizeof line,

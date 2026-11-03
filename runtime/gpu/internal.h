@@ -33,6 +33,7 @@ namespace gpu::detail
     // as on them the title only reuses its command memory.
     void WritePhysical(uint32_t physicalAddress, uint32_t value, bool publish = true);
     void ReportCommandProcessor();
+    void ReportDisplayLut();
     // Writes the records of the occlusion queries the GPU has finished counting.
     void DeliverOcclusionQueries();
 
