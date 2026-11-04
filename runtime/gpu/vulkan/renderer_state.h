@@ -899,6 +899,7 @@ namespace vk::renderer::detail
     // and waited for.
     void ExamineFrame(bool worldDrawn, const FrameReadBacks& plan);
     void LogTargetSamples();
+    void WriteDump(const char* name, const uint8_t* rgba, uint32_t width, uint32_t height);
     std::vector<uint8_t> ReadColourImage(VkImage image, VkImageLayout layout, uint32_t width,
                                          uint32_t height, uint32_t texelBytes,
                                          VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT);

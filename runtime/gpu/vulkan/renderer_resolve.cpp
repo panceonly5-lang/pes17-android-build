@@ -797,6 +797,35 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // (Up to 1024x1024: an unlicensed team's kit pattern is drawn on the GPU at that size and resolved,
     // and the title's CPU converts it to the 5_6_5 texture the kit is composed from. Held to 512 it read
     // zeros and every unlicensed kit came out black.)
+    // Paired source/destination capture for the main framebuffer resolve.
+    if (g_dumpDraws && !exact &&
+        (destination == 0x013BE000u || destination == 0x01026000u) &&
+        source->samples == VK_SAMPLE_COUNT_1_BIT &&
+        source->format == VK_FORMAT_R8G8B8A8_UNORM &&
+        into.format == VK_FORMAT_R8G8B8A8_UNORM)
+    {
+        const bool resume = g.recording;
+        if (Submit(true))
+        {
+            const auto srcPixels = ReadColourImage(
+                sourceImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                HostOf(source->width, s), HostOf(source->height, s), 4);
+            const auto dstPixels = ReadColourImage(
+                into.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                HostOf(into.width, into.scale), HostOf(into.height, into.scale), 4);
+            char srcName[96], dstName[96];
+            std::snprintf(srcName, sizeof srcName, "resolve_src_%08X_f%llu",
+                          destination, (unsigned long long)g.frames);
+            std::snprintf(dstName, sizeof dstName, "resolve_dst_%08X_f%llu",
+                          destination, (unsigned long long)g.frames);
+            if (srcPixels.size() == size_t(HostOf(source->width, s)) * HostOf(source->height, s) * 4)
+                WriteDump(srcName, srcPixels.data(), HostOf(source->width, s), HostOf(source->height, s));
+            if (dstPixels.size() == size_t(HostOf(into.width, into.scale)) * HostOf(into.height, into.scale) * 4)
+                WriteDump(dstName, dstPixels.data(), HostOf(into.width, into.scale), HostOf(into.height, into.scale));
+        }
+        if (resume && !g.recording) BeginFrame();
+    }
+
     // Write-back. The console's resolve writes guest memory, and PES 2017 builds
     // its kits that way: each player's shirt, numbers and name are drawn and
     // resolved once during the load, and the textures the match then fetches are
