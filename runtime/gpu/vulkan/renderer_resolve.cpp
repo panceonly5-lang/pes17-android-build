@@ -799,7 +799,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // zeros and every unlicensed kit came out black.)
     // Paired source/destination capture for the main framebuffer resolve.
     if (g_dumpDraws && !exact &&
-        (destination == 0x013BE000u || destination == 0x01026000u) &&
+        (destination == 0x013BE000u || destination == 0x01026000u || destination == 0x013AE000u || destination == 0x01016000u) &&
         source->samples == VK_SAMPLE_COUNT_1_BIT &&
         source->format == VK_FORMAT_R8G8B8A8_UNORM &&
         into.format == VK_FORMAT_R8G8B8A8_UNORM)
