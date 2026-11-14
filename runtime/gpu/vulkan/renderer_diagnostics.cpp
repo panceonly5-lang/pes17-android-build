@@ -404,8 +404,9 @@ namespace vk::renderer::detail
     void ExportSkippedDraws()
     {
         if (!RecordingSkippedDraws()) return;
+        const char* outputDir = diag::Text("PES17_SKIPPED_DRAWS_DIR");
         const std::filesystem::path path =
-            std::filesystem::path(FlashDirectory()) / "skipped_draws.txt";
+            std::filesystem::path(outputDir ? outputDir : FlashDirectory()) / "skipped_draws.txt";
         std::error_code ec;
         std::filesystem::create_directories(path.parent_path(), ec);
         FILE* out = std::fopen(path.string().c_str(), "w");
