@@ -563,6 +563,7 @@ namespace vk::renderer::detail
     void NoteVertexWindow(const uint8_t* bytes, size_t size);
     void NoteConstantWindows(const gpu::RegisterFile& r, uint32_t vertexNeeded, uint32_t pixelNeeded);
     void NoteIndices(const uint8_t* bytes, size_t size);
+    void RecordSkippedDraw(const DrawRecord& draw, const char* why);
     // The frame whose picture carries this renderer frame number is done.
     void EndFrameDraws(uint64_t frame, bool worldDrawn);
 
@@ -591,7 +592,10 @@ namespace vk::renderer::detail
         const uint64_t n = ++g.skipped[why];
         if (n == 1 || n % 5000 == 0) LOGW("renderer: skipped (%llu so far): %s", (unsigned long long)n, why);
         if (g_dumpDraws) LOGW("DUMP   skipped: %s", why);
-        if (g.drawRecord && !g.drawRecord->skipped) g.drawRecord->skipped = why;
+        if (g.drawRecord && !g.drawRecord->skipped) {
+            g.drawRecord->skipped = why;
+            RecordSkippedDraw(*g.drawRecord, why);
+        }
     }
 
     // Where draws read and write an attachment: colour at the output stage,

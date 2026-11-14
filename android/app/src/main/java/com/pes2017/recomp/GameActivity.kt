@@ -781,6 +781,15 @@ class GameActivity : AppCompatActivity(), NativeListener {
             NativeBridge.nativeSetOption("PES17_DUMP_FRAME_EVERY", "")
             NativeBridge.nativeSetOption("PES17_DUMP_FRAMES_AFTER_SECONDS", "")
         }
+        // Keep skipped-draw diagnostics in the app-private files directory.
+        val skippedDrawDir = File(filesDir, "diagnosis/skipped_draws")
+        if (skippedDrawDir.mkdirs() || skippedDrawDir.isDirectory) {
+            NativeBridge.nativeSetOption("PES17_FLASH_DIR", skippedDrawDir.absolutePath)
+            NativeBridge.nativeSetOption("PES17_RECORD_SKIPPED_DRAWS", "1")
+        } else {
+            NativeBridge.nativeSetOption("PES17_FLASH_DIR", "")
+            NativeBridge.nativeSetOption("PES17_RECORD_SKIPPED_DRAWS", "")
+        }
         val shaderCacheFile = if (extDir != null) File(extDir, "shader_cache.bin") else File(filesDir, "shader_cache.bin")
         if (!shaderCacheFile.exists()) {
             val internalCache = File(filesDir, "shader_cache.bin")

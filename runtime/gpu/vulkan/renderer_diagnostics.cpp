@@ -22,6 +22,7 @@
 #include <cstring>
 #include <filesystem>
 #include <thread>
+#include <vector>
 
 #ifdef PES17_HAVE_VULKAN
 
@@ -376,6 +377,66 @@ namespace vk::renderer::detail
         uint32_t lastVertexAddress = 0;
     };
     DrawLog g_drawLog;
+
+    struct SkippedDraw {
+        DrawRecord draw;
+        const char* reason = nullptr;
+    };
+    std::vector<SkippedDraw> g_skippedDrawRecords;
+    uint64_t g_skippedDrawRecordsDropped = 0;
+
+    bool RecordingSkippedDraws()
+    {
+        static const bool on = diag::Flag("PES17_RECORD_SKIPPED_DRAWS");
+        return on;
+    }
+
+    void RecordSkippedDraw(const DrawRecord& draw, const char* why)
+    {
+        if (!RecordingSkippedDraws()) return;
+        if (g_skippedDrawRecords.size() >= 256) {
+            ++g_skippedDrawRecordsDropped;
+            return;
+        }
+        g_skippedDrawRecords.push_back({draw, why});
+    }
+
+    void ExportSkippedDraws()
+    {
+        if (!RecordingSkippedDraws()) return;
+        const std::filesystem::path path =
+            std::filesystem::path(FlashDirectory()) / "skipped_draws.txt";
+        std::error_code ec;
+        std::filesystem::create_directories(path.parent_path(), ec);
+        FILE* out = std::fopen(path.string().c_str(), "w");
+        if (!out) {
+            LOGW("renderer: cannot write skipped draw records: %s", path.string().c_str());
+            return;
+        }
+        std::fprintf(out, "count=%zu dropped=%llu\n",
+            g_skippedDrawRecords.size(),
+            (unsigned long long)g_skippedDrawRecordsDropped);
+        for (size_t i = 0; i < g_skippedDrawRecords.size(); ++i) {
+            const auto& item = g_skippedDrawRecords[i];
+            const auto& d = item.draw;
+            std::fprintf(out,
+                "%zu reason=%s VS=%016llx PS=%016llx colourTile=%u depthTile=%u "
+                "pitch=%u samples=%u primitive=%u count=%u vertexAddress=%08x "
+                "indexAddress=%08x depthControl=%08x blend=%08x colourMask=%08x "
+                "modeCntl=%08x colourControl=%08x\n",
+                i, item.reason ? item.reason : "unknown",
+                (unsigned long long)d.vertexShader,
+                (unsigned long long)d.pixelShader,
+                d.colourTile, d.depthTile, d.pitch, d.samples,
+                d.primitive, d.count, d.vertexAddress, d.indexAddress,
+                d.depthControl, d.blend, d.colourMask, d.modeCntl,
+                d.colourControl);
+        }
+        std::fclose(out);
+        LOGI("renderer: wrote %zu skipped draw records to %s",
+            g_skippedDrawRecords.size(), path.string().c_str());
+    }
+
 
     bool RecordingDraws()
     {
@@ -881,8 +942,19 @@ namespace vk::renderer::detail
                                 uint64_t pixelShader, uint32_t primitive, uint32_t count,
                                 uint32_t indexAddress)
     {
-        if (!RecordingDraws()) return nullptr;
-        DrawRecord& d = g_drawLog.open.draws.emplace_back();
+        const bool fullRecording = RecordingDraws();
+        if (!fullRecording && !RecordingSkippedDraws()) return nullptr;
+
+        DrawRecord* record;
+        if (fullRecording) {
+            record = &g_drawLog.open.draws.emplace_back();
+        } else {
+            static thread_local DrawRecord scratch;
+            scratch = DrawRecord{};
+            record = &scratch;
+        }
+
+        DrawRecord& d = *record;
         d.vertexShader = vertexShader;
         d.pixelShader = pixelShader;
         d.primitive = primitive;
@@ -898,14 +970,16 @@ namespace vk::renderer::detail
         d.colourMask = r[gpu::RB_COLOR_MASK];
         d.modeCntl = r[gpu::PA_SU_SC_MODE_CNTL];
         d.colourControl = r[gpu::RB_COLORCONTROL];
-        d.fetchConstants = Mix(0, &r.values[gpu::kConstantBaseFetch], 32 * 6 * 4);
-        d.textureFirst = uint32_t(g_drawLog.open.textures.size());
-        return &d;
+        if (fullRecording) {
+            d.fetchConstants = Mix(0, &r.values[gpu::kConstantBaseFetch], 32 * 6 * 4);
+            d.textureFirst = uint32_t(g_drawLog.open.textures.size());
+        }
+        return record;
     }
 
     void NoteDrawTexture(uint32_t slot, const gpu::TextureFetch& fetch, uint64_t id, bool resolved)
     {
-        if (!g.drawRecord) return;
+        if (!g.drawRecord || !RecordingDraws()) return;
         g_drawLog.open.textures.push_back({ slot, fetch.BaseAddress(), fetch.Format(),
                                             fetch.Width(), fetch.Height(), id,
                                             resolved ? 0u : vk::textures::Version(id), resolved });
@@ -919,7 +993,7 @@ namespace vk::renderer::detail
 
     void NoteVertexWindow(const uint8_t* bytes, size_t size)
     {
-        if (!g.drawRecord) return;
+        if (!g.drawRecord || !RecordingDraws()) return;
         if (!bytes)
         {
             g.drawRecord->vertexData = g_drawLog.lastVertexData;
@@ -933,14 +1007,14 @@ namespace vk::renderer::detail
 
     void NoteConstantWindows(const gpu::RegisterFile& r, uint32_t vertexNeeded, uint32_t pixelNeeded)
     {
-        if (!g.drawRecord) return;
+        if (!g.drawRecord || !RecordingDraws()) return;
         g.drawRecord->vertexConstants = WindowHash(r, gpu::SQ_VS_CONST, vertexNeeded);
         g.drawRecord->pixelConstants = WindowHash(r, gpu::SQ_PS_CONST, pixelNeeded);
     }
 
     void NoteIndices(const uint8_t* bytes, size_t size)
     {
-        if (g.drawRecord) g.drawRecord->indices = Sample(0, bytes, size);
+        if (g.drawRecord && RecordingDraws()) g.drawRecord->indices = Sample(0, bytes, size);
     }
 
     void EndFrameDraws(uint64_t frame, bool worldDrawn)
@@ -978,6 +1052,7 @@ void vk::renderer::Report()
     if constexpr (!diag::kOn) return;
     vk::capture::Report();
     vk::display::Report();
+    ExportSkippedDraws();
     if (!g.draws && !g.frames) return;
     if (g.device) { g.pipelineCount = g.pipelines.size(); g.shaderCount = g.shaders.size(); }
     LOGI("renderer: %llu frames, %llu of %llu draws recorded, %llu resolves (%llu of depth),"
