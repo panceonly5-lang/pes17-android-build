@@ -388,6 +388,7 @@ PES17_NATIVE(void, nativeRequestStop)(JNIEnv*, jobject)
 {
     gpu::detail::ReportDisplayLut();
     vk::display::Report();
+    vk::renderer::ExportSkippedDraws();
 
     LOGI("android: the app asked the run to end");
     android::audio::SetMuted(true);

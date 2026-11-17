@@ -17,6 +17,7 @@ void vk::renderer::BeginOcclusionQuery() {}
 bool vk::renderer::EndOcclusionQuery(uint32_t, uint64_t& samples) { samples = 0; return true; }
 void vk::renderer::CollectOcclusionQueries(void (*)(uint32_t, uint64_t)) {}
 void vk::renderer::Report() {}
+void vk::renderer::ExportSkippedDraws() {}
 void vk::renderer::FlashSeen(const char*) {}
 uint64_t vk::renderer::CompletedSubmission() { return 0; }
 void vk::renderer::BeforeStreamWrite(uint32_t, uint32_t) {}

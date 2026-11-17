@@ -115,4 +115,5 @@ namespace vk::renderer
     bool DumpingDraws();
 
     void Report();
+    void ExportSkippedDraws();
 }

@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 #ifdef PES17_HAVE_VULKAN
 
@@ -384,6 +385,7 @@ namespace vk::renderer::detail
     };
     std::vector<SkippedDraw> g_skippedDrawRecords;
     uint64_t g_skippedDrawRecordsDropped = 0;
+    std::mutex g_skippedDrawMutex;
 
     bool RecordingSkippedDraws()
     {
@@ -394,6 +396,7 @@ namespace vk::renderer::detail
     void RecordSkippedDraw(const DrawRecord& draw, const char* why)
     {
         if (!RecordingSkippedDraws()) return;
+        std::lock_guard<std::mutex> lock(g_skippedDrawMutex);
         if (g_skippedDrawRecords.size() >= 256) {
             ++g_skippedDrawRecordsDropped;
             return;
@@ -401,9 +404,18 @@ namespace vk::renderer::detail
         g_skippedDrawRecords.push_back({draw, why});
     }
 
-    void ExportSkippedDraws()
+    void ExportSkippedDrawsImpl()
     {
         if (!RecordingSkippedDraws()) return;
+
+        std::vector<SkippedDraw> records;
+        uint64_t dropped = 0;
+        {
+            std::lock_guard<std::mutex> lock(g_skippedDrawMutex);
+            records = g_skippedDrawRecords;
+            dropped = g_skippedDrawRecordsDropped;
+        }
+
         const char* outputDir = diag::Text("PES17_SKIPPED_DRAWS_DIR");
         const std::filesystem::path path =
             std::filesystem::path(outputDir ? outputDir : FlashDirectory()) / "skipped_draws.txt";
@@ -415,10 +427,9 @@ namespace vk::renderer::detail
             return;
         }
         std::fprintf(out, "count=%zu dropped=%llu\n",
-            g_skippedDrawRecords.size(),
-            (unsigned long long)g_skippedDrawRecordsDropped);
-        for (size_t i = 0; i < g_skippedDrawRecords.size(); ++i) {
-            const auto& item = g_skippedDrawRecords[i];
+            records.size(), (unsigned long long)dropped);
+        for (size_t i = 0; i < records.size(); ++i) {
+            const auto& item = records[i];
             const auto& d = item.draw;
             std::fprintf(out,
                 "%zu reason=%s VS=%016llx PS=%016llx colourTile=%u depthTile=%u "
@@ -435,9 +446,8 @@ namespace vk::renderer::detail
         }
         std::fclose(out);
         LOGI("renderer: wrote %zu skipped draw records to %s",
-            g_skippedDrawRecords.size(), path.string().c_str());
+            records.size(), path.string().c_str());
     }
-
 
     bool RecordingDraws()
     {
@@ -1039,6 +1049,11 @@ namespace vk::renderer::detail
 
 using namespace vk::renderer::detail;
 
+void vk::renderer::ExportSkippedDraws()
+{
+    vk::renderer::detail::ExportSkippedDrawsImpl();
+}
+
 // From the window thread on F7, or the input poll on the pad's Y. Logged here,
 // at the moment of the press, so the time on the line is the time the person
 // reacted. Any thread: a count and a line.
@@ -1053,7 +1068,7 @@ void vk::renderer::Report()
     if constexpr (!diag::kOn) return;
     vk::capture::Report();
     vk::display::Report();
-    ExportSkippedDraws();
+    ExportSkippedDrawsImpl();
     if (!g.draws && !g.frames) return;
     if (g.device) { g.pipelineCount = g.pipelines.size(); g.shaderCount = g.shaders.size(); }
     LOGI("renderer: %llu frames, %llu of %llu draws recorded, %llu resolves (%llu of depth),"
