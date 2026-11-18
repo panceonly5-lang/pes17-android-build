@@ -116,4 +116,5 @@ namespace vk::renderer
 
     void Report();
     void ExportSkippedDraws();
+    void NoteSurfaceInfoWrite(uint32_t value, uint32_t packetAddress, uint32_t opcode);
 }

@@ -259,6 +259,11 @@ namespace
                 LOGW("gpu: a non-finite constant %08X is written to c%u.%c by the %s packet at %08X", value, (index - 0x4000) / 4, "xyzw"[index & 3], g_currentOpcodeName.load() ? g_currentOpcodeName.load() : "?", g_currentPacketAddress.load());
         }
         g.registers.Write(index, value);
+        if (index == gpu::RB_SURFACE_INFO)
+            vk::renderer::NoteSurfaceInfoWrite(
+                value,
+                g_currentPacketAddress.load(std::memory_order_relaxed),
+                g_currentOpcode.load(std::memory_order_relaxed));
     if (index == gpu::DC_LUT_RW_INDEX) g.lutIndexWrites++;
         *GuestPtr<be32>(kRegisterAperture + index * 4) = value;
         // Dump only: who sets vertex fetch slot 95 (vf31.2) and texture slot 0.

@@ -379,13 +379,31 @@ namespace vk::renderer::detail
     };
     DrawLog g_drawLog;
 
+    struct SurfaceInfoWrite {
+        uint32_t value = 0;
+        uint32_t packetAddress = 0;
+        uint32_t opcode = 0;
+        bool written = false;
+    };
+    SurfaceInfoWrite g_lastSurfaceInfoWrite;
+    std::mutex g_surfaceInfoWriteMutex;
+
     struct SkippedDraw {
         DrawRecord draw;
         const char* reason = nullptr;
+        SurfaceInfoWrite surfaceInfo;
     };
     std::vector<SkippedDraw> g_skippedDrawRecords;
     uint64_t g_skippedDrawRecordsDropped = 0;
     std::mutex g_skippedDrawMutex;
+
+    void NoteSurfaceInfoWriteImpl(uint32_t value, uint32_t packetAddress, uint32_t opcode)
+    {
+        std::lock_guard<std::mutex> lock(g_surfaceInfoWriteMutex);
+        g_lastSurfaceInfoWrite = { value, packetAddress, opcode, true };
+        LOGI("renderer: RB_SURFACE_INFO write value=%08x packet=%08x opcode=%03x",
+             value, packetAddress, opcode);
+    }
 
     bool RecordingSkippedDraws()
     {
@@ -401,7 +419,12 @@ namespace vk::renderer::detail
             ++g_skippedDrawRecordsDropped;
             return;
         }
-        g_skippedDrawRecords.push_back({draw, why});
+        SurfaceInfoWrite snapshot;
+        {
+            std::lock_guard<std::mutex> surfaceLock(g_surfaceInfoWriteMutex);
+            snapshot = g_lastSurfaceInfoWrite;
+        }
+        g_skippedDrawRecords.push_back({draw, why, snapshot});
     }
 
     void ExportSkippedDrawsImpl()
@@ -435,14 +458,17 @@ namespace vk::renderer::detail
                 "%zu reason=%s VS=%016llx PS=%016llx colourTile=%u depthTile=%u "
                 "pitch=%u samples=%u primitive=%u count=%u vertexAddress=%08x "
                 "indexAddress=%08x depthControl=%08x blend=%08x colourMask=%08x "
-                "modeCntl=%08x colourControl=%08x\n",
+                "modeCntl=%08x colourControl=%08x "
+                "surfaceInfo=%08x surfacePacket=%08x surfaceOpcode=%03x surfaceWritten=%u\n",
                 i, item.reason ? item.reason : "unknown",
                 (unsigned long long)d.vertexShader,
                 (unsigned long long)d.pixelShader,
                 d.colourTile, d.depthTile, d.pitch, d.samples,
                 d.primitive, d.count, d.vertexAddress, d.indexAddress,
                 d.depthControl, d.blend, d.colourMask, d.modeCntl,
-                d.colourControl);
+                d.colourControl, item.surfaceInfo.value,
+                item.surfaceInfo.packetAddress, item.surfaceInfo.opcode,
+                item.surfaceInfo.written ? 1u : 0u);
         }
         std::fclose(out);
         LOGI("renderer: wrote %zu skipped draw records to %s",
@@ -1052,6 +1078,11 @@ using namespace vk::renderer::detail;
 void vk::renderer::ExportSkippedDraws()
 {
     vk::renderer::detail::ExportSkippedDrawsImpl();
+}
+
+void vk::renderer::NoteSurfaceInfoWrite(uint32_t value, uint32_t packetAddress, uint32_t opcode)
+{
+    vk::renderer::detail::NoteSurfaceInfoWriteImpl(value, packetAddress, opcode);
 }
 
 // From the window thread on F7, or the input poll on the pad's Y. Logged here,
