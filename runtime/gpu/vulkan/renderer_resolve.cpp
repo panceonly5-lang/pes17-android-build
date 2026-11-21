@@ -800,7 +800,6 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // Paired source/destination capture for the main framebuffer resolve.
     if (g_dumpDraws && !exact &&
         (destination == 0x013BE000u || destination == 0x01026000u || destination == 0x013AE000u || destination == 0x01016000u) &&
-        source->samples == VK_SAMPLE_COUNT_1_BIT &&
         source->format == VK_FORMAT_R8G8B8A8_UNORM &&
         into.format == VK_FORMAT_R8G8B8A8_UNORM)
     {
@@ -808,7 +807,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         if (Submit(true))
         {
             const auto srcPixels = ReadColourImage(
-                sourceImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                sourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 HostOf(source->width, s), HostOf(source->height, s), 4);
             const auto dstPixels = ReadColourImage(
                 into.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
