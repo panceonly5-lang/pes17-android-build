@@ -798,6 +798,16 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // and the title's CPU converts it to the 5_6_5 texture the kit is composed from. Held to 512 it read
     // zeros and every unlicensed kit came out black.)
     // Paired source/destination capture for the main framebuffer resolve.
+    if (destination == 0x013BE000u || destination == 0x01026000u ||
+        destination == 0x013AE000u || destination == 0x01016000u)
+    {
+        LOGW("RESOLVE CAPTURE GATE: dest=%08x exact=%u srcFmt=%s dstFmt=%s srcSamples=%u src=%ux%u dst=%ux%u",
+             unsigned(destination), exact != nullptr,
+             vk::formats::VulkanFormatName(source->format),
+             vk::formats::VulkanFormatName(into.format),
+             unsigned(source->samples), source->width, source->height,
+             into.width, into.height);
+    }
     if (g_dumpDraws && !exact &&
         (destination == 0x013BE000u || destination == 0x01026000u || destination == 0x013AE000u || destination == 0x01016000u) &&
         source->format == VK_FORMAT_R8G8B8A8_UNORM &&
