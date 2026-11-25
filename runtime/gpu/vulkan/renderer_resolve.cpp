@@ -1016,9 +1016,12 @@ void vk::renderer::Swap(uint32_t frontBuffer)
         }
         else if (vk::renderer::detail::DumpRequested())
         {
-            // A CAPTURE burst logs only the draws: the full dump costs about two seconds a frame.
-            if (g_captureBurst > 0) vk::renderer::detail::g_dumpHeaders = true;
-            else vk::renderer::detail::g_dumpDraws = true;
+            // The first frame of a CAPTURE burst gets the full draw/resolve
+            // dump; the remaining frames use lightweight headers.
+            if (g_captureBurst > 0 && g_captureBurst < 8)
+                vk::renderer::detail::g_dumpHeaders = true;
+            else
+                vk::renderer::detail::g_dumpDraws = true;
             vk::renderer::detail::g_dumpIndex = 0; armed = true;
             LOGW("DUMP frame begins (swap to %08X)", frontBuffer);
         }
