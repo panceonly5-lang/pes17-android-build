@@ -392,6 +392,8 @@ void vk::renderer::PublishWriteBacks()
     detail::PublishWriteBacksNow();
 }
 
+static bool g_captureResolve = false; // one-shot paired main framebuffer readback
+
 void vk::renderer::Resolve(const gpu::RegisterFile& r)
 {
     Stopwatch watch(g.resolveNanoseconds);
@@ -808,7 +810,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
              unsigned(source->samples), source->width, source->height,
              into.width, into.height);
     }
-    if (g_dumpDraws && !exact &&
+    if (g_captureResolve && !exact &&
         (destination == 0x013BE000u || destination == 0x01026000u || destination == 0x013AE000u || destination == 0x01016000u) &&
         source->format == VK_FORMAT_R8G8B8A8_UNORM &&
         into.format == VK_FORMAT_R8G8B8A8_UNORM)
@@ -833,6 +835,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                 WriteDump(dstName, dstPixels.data(), HostOf(into.width, into.scale), HostOf(into.height, into.scale));
         }
         if (resume && !g.recording) BeginFrame();
+        g_captureResolve = false;
     }
 
     // Write-back. The console's resolve writes guest memory, and PES 2017 builds
@@ -891,7 +894,6 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
 // names, which a resolve filled like any other destination. A resolve the size
 // of the display is not the frame for being that size -- the title keeps the
 // screen in one for the next frame's blur, before the interface is drawn.
-static int g_captureBurst = 0;   // consecutive frames still to dump after a CAPTURE
 
 static std::atomic<bool> g_cacheFlushRequested{ false };
 void vk::renderer::RequestCacheFlush() { g_cacheFlushRequested.store(true, std::memory_order_release); }
@@ -952,8 +954,8 @@ void vk::renderer::Swap(uint32_t frontBuffer)
                     if (!line.empty()) LOGW("capture:%s", line.c_str());
                     kernel::DumpYieldStacks(int(count % 1000) + 1);   // a fresh budget per capture
                     crash::DumpAllThreads("CAPTURE button");   // where every guest thread is (for a hang)
-                    g_captureBurst = 8;
-                    if (FILE* f = std::fopen((android::GetPaths().external + "/dump_frame").c_str(), "w")) std::fclose(f);
+                    g_captureResolve = true;
+                    LOGW("capture: armed paired resolve readback for next frame");
                 }
             }
         }
@@ -1009,19 +1011,10 @@ void vk::renderer::Swap(uint32_t frontBuffer)
                 samplesDue = true;
             }
             LOGW("DUMP frame ends");
-#ifdef PES17_ANDROID
-            if (g_captureBurst > 0 && --g_captureBurst > 0)
-                if (FILE* f = std::fopen((android::GetPaths().external + "/dump_frame").c_str(), "w")) std::fclose(f);
-#endif
         }
         else if (vk::renderer::detail::DumpRequested())
         {
-            // The first frame of a CAPTURE burst gets the full draw/resolve
-            // dump; the remaining frames use lightweight headers.
-            if (g_captureBurst > 0 && g_captureBurst < 8)
-                vk::renderer::detail::g_dumpHeaders = true;
-            else
-                vk::renderer::detail::g_dumpDraws = true;
+            vk::renderer::detail::g_dumpDraws = true;
             vk::renderer::detail::g_dumpIndex = 0; armed = true;
             LOGW("DUMP frame begins (swap to %08X)", frontBuffer);
         }
